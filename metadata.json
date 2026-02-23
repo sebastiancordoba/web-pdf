@@ -1,0 +1,5 @@
+{
+  "name": "Zathura Web PDF",
+  "description": "A minimalist, keyboard-driven PDF reader and editor inspired by Zathura, featuring dark mode, page manipulation, and a command-line interface.",
+  "requestFramePermissions": []
+}
