@@ -32,6 +32,7 @@ const App: React.FC = () => {
     currentSearchResultIndex: -1,
     searchResults: [],
     viewMode: 'single',
+    isControlsVisible: true,
   });
 
   const [fileData, setFileData] = useState<ArrayBuffer | null>(null);
@@ -303,6 +304,7 @@ const App: React.FC = () => {
         case 'Tab': e.preventDefault(); setState(prev => ({ ...prev, isSidebarOpen: !prev.isSidebarOpen })); break;
         case 'm': setState(prev => ({ ...prev, isMapViewOpen: !prev.isMapViewOpen })); break;
         case 'b': setState(prev => ({ ...prev, isBookMode: !prev.isBookMode })); break;
+        case 'p': setState(prev => ({ ...prev, isControlsVisible: !prev.isControlsVisible })); break;
         case 'f': case 'F11': e.preventDefault(); toggleFullscreen(); break;
         case '+': case '=': setState(prev => ({ ...prev, zoom: Math.min(5, prev.zoom + 0.1) })); break;
         case '-': setState(prev => ({ ...prev, zoom: Math.max(0.2, prev.zoom - 0.1) })); break;
@@ -428,7 +430,7 @@ const App: React.FC = () => {
       <div className="z-50">
         {commandActive && <CommandInput prefix=":" onExecute={executeCommand} onCancel={() => setCommandActive(false)} isDarkMode={state.isDarkMode} />}
         {searchActive && <CommandInput prefix="/" onExecute={(q) => { performSearch(q); setSearchActive(false); }} onCancel={() => setSearchActive(false)} isDarkMode={state.isDarkMode} />}
-        {!commandActive && !searchActive && (
+        {!commandActive && !searchActive && state.isControlsVisible && (
           <StatusBar 
             state={state} 
             lastResponse={lastResponse}

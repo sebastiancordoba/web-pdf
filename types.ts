@@ -15,6 +15,7 @@ export interface PDFState {
   currentSearchResultIndex: number;
   searchResults: SearchResult[];
   viewMode: 'single' | 'double';
+  isControlsVisible: boolean;
 }
 
 export interface SearchResult {

@@ -27,6 +27,7 @@ Zathura Web is a minimalist, keyboard-driven PDF and EPUB reader for the browser
 - `a`: Fit to Height
 - `f` / `F11`: Toggle Fullscreen
 - `b`: Toggle Book Mode (Double-page view)
+- `p`: Toggle Controls Bar
 - `m`: Toggle Map View
 - `Tab`: Toggle Sidebar
 - `:`: Open Command Palette
