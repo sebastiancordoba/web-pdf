@@ -167,7 +167,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded }: Props, ref) => 
       const page = await pdfDocRef.current.getPage(pageNum);
       if (renderId !== renderIdRef.current) return;
 
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = (window.devicePixelRatio || 1) * 2; // Double the DPR for sharper rendering
       const safeRotation = ((Math.round(state.rotation / 90) * 90) % 360 + 360) % 360;
 
       // 1. Calculate high-resolution viewport for Canvas (Device Pixels)
