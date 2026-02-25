@@ -6,10 +6,15 @@ interface Props {
   pdfData: ArrayBuffer;
   state: PDFState;
   onPagesLoaded: (num: number) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
-const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded }: Props, ref) => {
+const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }: Props, ref) => {
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (onLoadingChange) onLoadingChange(loading);
+  }, [loading, onLoadingChange]);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
   const renderTasksRef = useRef<{ [key: number]: any }>({});
   const renderIdRef = useRef<number>(0);
@@ -255,14 +260,6 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded }: Props, ref) => 
 
   return (
     <div className={`flex gap-4 items-center justify-center transition-all duration-300 min-h-full ${state.isDarkMode ? 'pdf-dark-mode' : ''}`}>
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[2px] z-20 pointer-events-none">
-          <div className="text-white mono text-xs tracking-widest bg-black/60 px-4 py-2 rounded animate-pulse uppercase border border-white/10 shadow-lg">
-            Loading Document...
-          </div>
-        </div>
-      )}
-      
       {visiblePages.map(pageNum => (
         <div 
           key={pageNum}

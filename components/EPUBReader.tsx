@@ -9,9 +9,10 @@ interface Props {
   onTocLoaded: (toc: any[]) => void;
   onLocationChange: (loc: any) => void;
   onLocationsReady?: (total: number) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
-const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange, onLocationsReady }: Props, ref) => {
+const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange, onLocationsReady, onLoadingChange }: Props, ref) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const renditionRef = useRef<any>(null);
   const bookRef = useRef<any>(null);
@@ -31,6 +32,8 @@ const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange,
   useEffect(() => {
     if (!viewerRef.current || !epubData) return;
 
+    if (onLoadingChange) onLoadingChange(true);
+
     const book = ePub(epubData);
     bookRef.current = book;
 
@@ -42,7 +45,9 @@ const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange,
     });
     renditionRef.current = rendition;
 
-    rendition.display();
+    rendition.display().then(() => {
+      if (onLoadingChange) onLoadingChange(false);
+    });
 
     book.loaded.navigation.then((nav) => {
       onTocLoaded(nav.toc);

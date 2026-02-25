@@ -39,6 +39,7 @@ const App: React.FC = () => {
   const [toc, setToc] = useState<any[]>([]);
   const [commandActive, setCommandActive] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [lastResponse, setLastResponse] = useState<CommandResponse | null>(null);
   
   const lastKeyRef = useRef<string | null>(null);
@@ -71,40 +72,49 @@ const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-      const arrayBuffer = await file.arrayBuffer();
-      setFileData(arrayBuffer);
-      setState(prev => ({
-        ...prev,
-        file,
-        fileType: 'pdf',
-        fileName: file.name,
-        currentPage: 1,
-        rotation: 0,
-        searchQuery: '',
-        searchResults: [],
-        currentSearchResultIndex: -1,
-        numPages: 0
-      }));
-      setLastResponse({ message: `Loaded ${file.name}`, type: 'success' });
-    } else if (file.type === 'application/epub+zip' || file.name.toLowerCase().endsWith('.epub')) {
-      const arrayBuffer = await file.arrayBuffer();
-      setFileData(arrayBuffer);
-      setState(prev => ({
-        ...prev,
-        file,
-        fileType: 'epub',
-        fileName: file.name,
-        currentPage: 1,
-        rotation: 0,
-        searchQuery: '',
-        searchResults: [],
-        currentSearchResultIndex: -1,
-        numPages: 0
-      }));
-      setLastResponse({ message: `Loaded ${file.name}`, type: 'success' });
-    } else {
-      setLastResponse({ message: "Only PDF and EPUB files are supported", type: 'error' });
+    setIsProcessing(true);
+
+    try {
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        const arrayBuffer = await file.arrayBuffer();
+        setFileData(arrayBuffer);
+        setState(prev => ({
+          ...prev,
+          file,
+          fileType: 'pdf',
+          fileName: file.name,
+          currentPage: 1,
+          rotation: 0,
+          searchQuery: '',
+          searchResults: [],
+          currentSearchResultIndex: -1,
+          numPages: 0
+        }));
+        setLastResponse({ message: `Loaded ${file.name}`, type: 'success' });
+      } else if (file.type === 'application/epub+zip' || file.name.toLowerCase().endsWith('.epub')) {
+        const arrayBuffer = await file.arrayBuffer();
+        setFileData(arrayBuffer);
+        setState(prev => ({
+          ...prev,
+          file,
+          fileType: 'epub',
+          fileName: file.name,
+          currentPage: 1,
+          rotation: 0,
+          searchQuery: '',
+          searchResults: [],
+          currentSearchResultIndex: -1,
+          numPages: 0
+        }));
+        setLastResponse({ message: `Loaded ${file.name}`, type: 'success' });
+      } else {
+        setLastResponse({ message: "Only PDF and EPUB files are supported", type: 'error' });
+        setIsProcessing(false);
+      }
+    } catch (err) {
+      console.error("Error reading file:", err);
+      setLastResponse({ message: "Error reading file", type: 'error' });
+      setIsProcessing(false);
     }
   };
 
@@ -121,6 +131,7 @@ const App: React.FC = () => {
     if (!fileData || !query.trim()) return;
     
     if (state.fileType === 'pdf') {
+      setIsProcessing(true);
       setLastResponse({ message: "Searching...", type: 'info' });
       const results: SearchResult[] = [];
       try {
@@ -149,6 +160,8 @@ const App: React.FC = () => {
         pdf.destroy();
       } catch (err) {
         setLastResponse({ message: "Search failed", type: 'error' });
+      } finally {
+        setIsProcessing(false);
       }
     } else {
       setLastResponse({ message: "Search not supported for EPUB yet", type: 'info' });
@@ -372,6 +385,7 @@ const App: React.FC = () => {
                 pdfData={fileData}
                 state={state}
                 onPagesLoaded={(n) => setState(prev => ({ ...prev, numPages: n }))}
+                onLoadingChange={setIsProcessing}
               />
             ) : (
               <EPUBReader
@@ -390,10 +404,17 @@ const App: React.FC = () => {
                     setState(prev => ({ ...prev, currentPage }));
                   }
                 }}
+                onLoadingChange={setIsProcessing}
               />
             )
           )}
         </main>
+        {isProcessing && (
+          <div className="absolute top-4 right-4 z-50 flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-mono tracking-widest uppercase shadow-lg animate-fade-in border border-white/10">
+            <div className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin"></div>
+            <span>Processing</span>
+          </div>
+        )}
         {state.numPages > 1 && (
           <div className="relative h-full flex items-center">
             <ProgressSpine 
