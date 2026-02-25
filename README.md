@@ -1,5 +1,7 @@
 # Zathura Web
 
+[**Live Demo**](https://sebastiancordoba.github.io/web-pdf/)
+
 Zathura Web is a minimalist, keyboard-driven PDF and EPUB reader for the browser, inspired by the popular Linux document viewer Zathura. It focuses on providing a distraction-free reading experience with powerful keyboard shortcuts for navigation and control.
 
 ## Features
