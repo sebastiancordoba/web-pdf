@@ -149,7 +149,7 @@ const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange,
   }, [state.isDarkMode, state.zoom, state.viewMode]);
 
   return (
-    <div className="w-full h-full max-w-4xl mx-auto flex flex-col items-center">
+    <div className="flex-1 w-full h-full max-w-4xl mx-auto flex flex-col items-center">
       <div ref={viewerRef} className="w-full h-full" />
     </div>
   );

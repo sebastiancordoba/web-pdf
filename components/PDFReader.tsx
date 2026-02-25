@@ -259,7 +259,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
     : [state.currentPage];
 
   return (
-    <div className={`flex gap-4 items-center justify-center transition-all duration-300 min-h-full ${state.isDarkMode ? 'pdf-dark-mode' : ''}`}>
+    <div className={`m-auto flex gap-4 transition-all duration-300 ${state.isDarkMode ? 'pdf-dark-mode' : ''}`}>
       {visiblePages.map(pageNum => (
         <div 
           key={pageNum}

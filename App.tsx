@@ -313,7 +313,24 @@ const App: React.FC = () => {
           break;
         case 'G': e.preventDefault(); setState(prev => ({ ...prev, currentPage: prev.numPages })); break;
         case 'i': setState(prev => ({ ...prev, isDarkMode: !prev.isDarkMode })); break;
-        case 'd': setState(prev => ({ ...prev, viewMode: prev.viewMode === 'single' ? 'double' : 'single' })); break;
+        case 'd': 
+          setState(prev => ({ ...prev, viewMode: prev.viewMode === 'single' ? 'double' : 'single' })); 
+          setTimeout(() => {
+            if (mainRef.current) {
+              mainRef.current.scrollLeft = (mainRef.current.scrollWidth - mainRef.current.clientWidth) / 2;
+            }
+          }, 50);
+          break;
+        case 'q':
+          if (state.viewMode === 'double' && mainRef.current) {
+            mainRef.current.scrollLeft = 0;
+          }
+          break;
+        case 'w':
+          if (state.viewMode === 'double' && mainRef.current) {
+            mainRef.current.scrollLeft = mainRef.current.scrollWidth - mainRef.current.clientWidth;
+          }
+          break;
         case 'Tab': e.preventDefault(); setState(prev => ({ ...prev, isSidebarOpen: !prev.isSidebarOpen })); break;
         case 'm': setState(prev => ({ ...prev, isMapViewOpen: !prev.isMapViewOpen })); break;
         case 'b': setState(prev => ({ ...prev, isBookMode: !prev.isBookMode })); break;
@@ -355,9 +372,9 @@ const App: React.FC = () => {
           onReorder={() => {}} 
           isDarkMode={state.isDarkMode}
         />
-        <main ref={mainRef} className="flex-1 flex flex-col items-center justify-center overflow-auto no-scrollbar relative p-12 scroll-smooth">
+        <main ref={mainRef} className="flex-1 flex overflow-auto no-scrollbar relative p-12 scroll-smooth">
           {!fileData ? (
-            <div className="flex flex-col items-center justify-center h-full text-center max-w-2xl mx-auto px-6">
+            <div className="m-auto flex flex-col items-center justify-center text-center max-w-2xl px-6">
               <div className="text-8xl mb-8 text-blue-500 animate-fade-in">
                 <i className="fa-solid fa-book-open"></i>
               </div>
