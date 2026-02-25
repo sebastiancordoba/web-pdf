@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import ThumbnailItem from './ThumbnailItem';
 import { PDFState } from '../types';
 
@@ -12,6 +12,17 @@ interface Props {
 }
 
 const MapView: React.FC<Props> = ({ isOpen, fileData, state, onPageSelect, onClose, isDarkMode }) => {
+  useEffect(() => {
+    if (isOpen && state.fileType === 'pdf') {
+      setTimeout(() => {
+        const el = document.getElementById(`mapview-thumb-${state.currentPage - 1}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [isOpen, state.currentPage, state.fileType]);
+
   if (!isOpen || !fileData) return null;
 
   const pages = Array.from({ length: state.numPages }, (_, i) => i);
@@ -53,19 +64,20 @@ const MapView: React.FC<Props> = ({ isOpen, fileData, state, onPageSelect, onClo
               
               <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-8">
                 {chunk.map(pageIndex => (
-                  <ThumbnailItem 
-                    key={pageIndex}
-                    index={pageIndex}
-                    pdfData={fileData}
-                    isActive={state.currentPage === pageIndex + 1}
-                    onClick={() => {
-                      onPageSelect(pageIndex + 1);
-                      onClose();
-                    }}
-                    isDarkMode={isDarkMode}
-                    scale={0.25}
-                    className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
-                  />
+                  <div key={pageIndex} id={`mapview-thumb-${pageIndex}`}>
+                    <ThumbnailItem 
+                      index={pageIndex}
+                      pdfData={fileData}
+                      isActive={state.currentPage === pageIndex + 1}
+                      onClick={() => {
+                        onPageSelect(pageIndex + 1);
+                        onClose();
+                      }}
+                      isDarkMode={isDarkMode}
+                      scale={0.25}
+                      className="hover:-translate-y-1 hover:shadow-xl transition-all duration-300"
+                    />
+                  </div>
                 ))}
               </div>
             </div>

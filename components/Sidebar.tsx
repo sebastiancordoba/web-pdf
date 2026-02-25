@@ -73,6 +73,7 @@ const ThumbnailItem: React.FC<{
   return (
     <div 
       ref={containerRef}
+      id={`sidebar-thumb-${index}`}
       onClick={onClick}
       className={`group relative p-3 rounded-sm cursor-pointer transition-all flex items-center gap-4 border-l-2 ${
         isActive 
@@ -82,7 +83,7 @@ const ThumbnailItem: React.FC<{
     >
       <div className="w-16 h-24 bg-gray-500/5 rounded-sm overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-500/10">
         {thumb ? (
-          <img src={thumb} alt={`P${index+1}`} className="w-full h-full object-contain" />
+          <img src={thumb} alt={`P${index+1}`} className={`w-full h-full object-contain ${isDarkMode ? 'filter invert-[0.9] hue-rotate-180 contrast-[0.9] brightness-[1.1]' : ''}`} />
         ) : (
           <div className="flex items-center justify-center w-full h-full bg-gray-500/10">
              <div className="w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin opacity-50"></div>
@@ -125,6 +126,17 @@ const TocItem: React.FC<{
 };
 
 const Sidebar: React.FC<Props> = ({ isOpen, fileData, state, toc, onPageSelect, onTocSelect, isDarkMode }) => {
+  useEffect(() => {
+    if (isOpen && state.fileType === 'pdf') {
+      setTimeout(() => {
+        const el = document.getElementById(`sidebar-thumb-${state.currentPage - 1}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [isOpen, state.currentPage, state.fileType]);
+
   if (!isOpen) return null;
 
   return (

@@ -74,7 +74,7 @@ const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isD
     >
       <div className="w-full aspect-[1/1.4] bg-gray-500/5 rounded-sm overflow-hidden flex items-center justify-center shadow-sm border border-gray-500/10 relative">
         {thumb ? (
-          <img src={thumb} alt={`P${index+1}`} className="w-full h-full object-contain" />
+          <img src={thumb} alt={`P${index+1}`} className={`w-full h-full object-contain ${isDarkMode ? 'filter invert-[0.9] hue-rotate-180 contrast-[0.9] brightness-[1.1]' : ''}`} />
         ) : (
           <div className="flex items-center justify-center w-full h-full bg-gray-500/10">
              <div className="w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin opacity-50"></div>
