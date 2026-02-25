@@ -8,6 +8,9 @@ interface Props {
   onOpenClick: () => void;
   onToggleDarkMode: () => void;
   onToggleViewMode: () => void;
+  onToggleMapView: () => void;
+  onToggleBookMode: () => void;
+  onToggleFullscreen: () => void;
   onPageChange: (page: number) => void;
   onFitWidth: () => void;
   onFitHeight: () => void;
@@ -21,6 +24,9 @@ const StatusBar: React.FC<Props> = ({
   onOpenClick, 
   onToggleDarkMode, 
   onToggleViewMode,
+  onToggleMapView,
+  onToggleBookMode,
+  onToggleFullscreen,
   onPageChange, 
 }) => {
   const [localPage, setLocalPage] = useState(state.currentPage.toString());
@@ -73,6 +79,15 @@ const StatusBar: React.FC<Props> = ({
         <div className="flex items-center gap-4">
           <button onClick={onToggleViewMode} className={`uppercase font-bold tracking-tighter ${state.viewMode === 'double' ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
             {state.viewMode}
+          </button>
+          <button onClick={onToggleBookMode} className={`uppercase font-bold tracking-tighter ${state.isBookMode ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+            Book
+          </button>
+          <button onClick={onToggleMapView} className={`uppercase font-bold tracking-tighter ${state.isMapViewOpen ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+            Map
+          </button>
+          <button onClick={onToggleFullscreen} className={`uppercase font-bold tracking-tighter ${state.isFullscreen ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
+            Full
           </button>
           <button onClick={onToggleDarkMode} className={`uppercase font-bold tracking-tighter ${state.isDarkMode ? 'text-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>
             Recolor

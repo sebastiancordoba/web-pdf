@@ -21,7 +21,7 @@
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
         /* Dark Mode Recolor (Zathura Style) */
-        .pdf-dark-mode canvas {
+        .pdf-dark-mode .pdf-page-wrapper {
             filter: invert(0.9) hue-rotate(180deg) contrast(0.9) brightness(1.1);
         }
 
@@ -56,10 +56,6 @@
             background: rgba(0, 80, 255, 0.25);
         }
 
-        .pdf-dark-mode .textLayer ::selection {
-            background: rgba(255, 200, 0, 0.3);
-        }
-
         /* Search Highlights */
         .search-highlight {
             background-color: rgba(255, 255, 0, 0.6);
@@ -70,14 +66,6 @@
         .search-highlight-active {
             background-color: rgba(255, 128, 0, 0.9) !important;
             box-shadow: 0 0 4px rgba(255, 128, 0, 0.6);
-        }
-
-        .pdf-dark-mode .search-highlight {
-            background-color: rgba(0, 255, 255, 0.6);
-        }
-
-        .pdf-dark-mode .search-highlight-active {
-            background-color: rgba(255, 0, 255, 0.9) !important;
         }
 
         @keyframes fade-in {

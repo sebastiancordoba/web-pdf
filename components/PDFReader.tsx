@@ -254,7 +254,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded }: Props, ref) => 
     : [state.currentPage];
 
   return (
-    <div className={`flex gap-4 items-start justify-center transition-all duration-300 ${state.isDarkMode ? 'pdf-dark-mode' : ''}`}>
+    <div className={`flex gap-4 items-center justify-center transition-all duration-300 min-h-full ${state.isDarkMode ? 'pdf-dark-mode' : ''}`}>
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[2px] z-20 pointer-events-none">
           <div className="text-white mono text-xs tracking-widest bg-black/60 px-4 py-2 rounded animate-pulse uppercase border border-white/10 shadow-lg">
@@ -266,8 +266,14 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded }: Props, ref) => 
       {visiblePages.map(pageNum => (
         <div 
           key={pageNum}
-          className="relative shadow-2xl border border-gray-500/10 bg-white group"
-          style={{ minWidth: '100px', minHeight: '100px' }}
+          className="pdf-page-wrapper relative shadow-2xl border border-gray-500/10 bg-white group"
+          style={{ 
+            minWidth: '100px', 
+            minHeight: '100px',
+            paddingLeft: state.isBookMode && pageNum % 2 === 0 ? '24px' : '0',
+            paddingRight: state.isBookMode && pageNum % 2 !== 0 ? '24px' : '0',
+            transition: 'padding 0.3s ease'
+          }}
         >
           <canvas 
             ref={el => { canvasRefs.current[pageNum] = el; }}

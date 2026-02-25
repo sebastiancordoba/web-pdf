@@ -8,9 +8,10 @@ interface Props {
   state: PDFState;
   onTocLoaded: (toc: any[]) => void;
   onLocationChange: (loc: any) => void;
+  onLocationsReady?: (total: number) => void;
 }
 
-const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange }: Props, ref) => {
+const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange, onLocationsReady }: Props, ref) => {
   const viewerRef = useRef<HTMLDivElement>(null);
   const renditionRef = useRef<any>(null);
   const bookRef = useRef<any>(null);
@@ -19,6 +20,12 @@ const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange 
     next: () => renditionRef.current?.next(),
     prev: () => renditionRef.current?.prev(),
     goTo: (cfi: string) => renditionRef.current?.display(cfi),
+    goToPercentage: (percent: number) => {
+      if (bookRef.current) {
+        const cfi = bookRef.current.locations.cfiFromPercentage(percent);
+        renditionRef.current?.display(cfi);
+      }
+    }
   }));
 
   useEffect(() => {
@@ -43,6 +50,16 @@ const EPUBReader = forwardRef(({ epubData, state, onTocLoaded, onLocationChange 
 
     rendition.on('relocated', (location: any) => {
       onLocationChange(location);
+    });
+
+    book.ready.then(() => {
+      // Generate locations for progress bar
+      // This might be heavy for large books, so we do it async
+      book.locations.generate(1000).then(() => {
+        if (onLocationsReady) {
+          onLocationsReady(book.locations.total);
+        }
+      });
     });
 
     return () => {

@@ -6,6 +6,8 @@ import EPUBReader from './components/EPUBReader';
 import StatusBar from './components/StatusBar';
 import CommandInput from './components/CommandInput';
 import Sidebar from './components/Sidebar';
+import ProgressSpine from './components/ProgressSpine';
+import MapView from './components/MapView';
 import { PDFState, CommandResponse, SearchResult } from './types';
 
 // Use unpkg for the worker to ensure static asset compatibility and correct MIME types
@@ -22,6 +24,9 @@ const App: React.FC = () => {
     rotation: 0,
     isDarkMode: true,
     isSidebarOpen: false,
+    isMapViewOpen: false,
+    isBookMode: false,
+    isFullscreen: false,
     fileName: 'No file selected',
     searchQuery: '',
     currentSearchResultIndex: -1,
@@ -40,6 +45,26 @@ const App: React.FC = () => {
   const mainRef = useRef<HTMLElement>(null);
   const pdfReaderRef = useRef<any>(null);
   const epubReaderRef = useRef<any>(null);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setState(prev => ({ ...prev, isFullscreen: !!document.fullscreenElement }));
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -276,6 +301,9 @@ const App: React.FC = () => {
         case 'i': setState(prev => ({ ...prev, isDarkMode: !prev.isDarkMode })); break;
         case 'd': setState(prev => ({ ...prev, viewMode: prev.viewMode === 'single' ? 'double' : 'single' })); break;
         case 'Tab': e.preventDefault(); setState(prev => ({ ...prev, isSidebarOpen: !prev.isSidebarOpen })); break;
+        case 'm': setState(prev => ({ ...prev, isMapViewOpen: !prev.isMapViewOpen })); break;
+        case 'b': setState(prev => ({ ...prev, isBookMode: !prev.isBookMode })); break;
+        case 'f': case 'F11': e.preventDefault(); toggleFullscreen(); break;
         case '+': case '=': setState(prev => ({ ...prev, zoom: Math.min(5, prev.zoom + 0.1) })); break;
         case '-': setState(prev => ({ ...prev, zoom: Math.max(0.2, prev.zoom - 0.1) })); break;
         case 's': handleFit('width'); break;
@@ -312,7 +340,7 @@ const App: React.FC = () => {
           onReorder={() => {}} 
           isDarkMode={state.isDarkMode}
         />
-        <main ref={mainRef} className="flex-1 flex flex-col items-center overflow-auto no-scrollbar relative p-12 scroll-smooth">
+        <main ref={mainRef} className="flex-1 flex flex-col items-center justify-center overflow-auto no-scrollbar relative p-12 scroll-smooth">
           {!fileData ? (
             <div className="flex flex-col items-center justify-center h-full text-center max-w-2xl mx-auto px-6">
               <div className="text-8xl mb-8 text-blue-500 animate-fade-in">
@@ -350,14 +378,53 @@ const App: React.FC = () => {
                 epubData={fileData}
                 state={state}
                 onTocLoaded={(t) => setToc(t)}
+                onLocationsReady={(total) => {
+                  setState(prev => ({ ...prev, numPages: total }));
+                }}
                 onLocationChange={(loc) => {
                   // Update current page/location state if needed
+                  if (loc && loc.start && loc.start.percentage) {
+                    const currentPage = Math.floor(loc.start.percentage * state.numPages) + 1;
+                    setState(prev => ({ ...prev, currentPage }));
+                  }
                 }}
               />
             )
           )}
         </main>
+        {state.numPages > 1 && (
+          <div className="relative h-full flex items-center">
+            <ProgressSpine 
+              numPages={state.numPages} 
+              currentPage={state.currentPage} 
+              onPageSelect={(p) => {
+                setState(prev => ({ ...prev, currentPage: p }));
+                if (state.fileType === 'pdf' && mainRef.current) mainRef.current.scrollTop = 0;
+                if (state.fileType === 'epub') {
+                  const percentage = (p - 1) / (state.numPages - 1);
+                  epubReaderRef.current?.goToPercentage(percentage);
+                }
+              }}
+              isDarkMode={state.isDarkMode} 
+            />
+          </div>
+        )}
       </div>
+      <MapView 
+        isOpen={state.isMapViewOpen} 
+        fileData={fileData ? new Uint8Array(fileData) : null} 
+        state={state}
+        onPageSelect={(p) => {
+          setState(prev => ({ ...prev, currentPage: p }));
+          if (state.fileType === 'pdf' && mainRef.current) mainRef.current.scrollTop = 0;
+          if (state.fileType === 'epub') {
+            const percentage = (p - 1) / (state.numPages - 1);
+            epubReaderRef.current?.goToPercentage(percentage);
+          }
+        }}
+        onClose={() => setState(prev => ({ ...prev, isMapViewOpen: false }))}
+        isDarkMode={state.isDarkMode}
+      />
       <div className="z-50">
         {commandActive && <CommandInput prefix=":" onExecute={executeCommand} onCancel={() => setCommandActive(false)} isDarkMode={state.isDarkMode} />}
         {searchActive && <CommandInput prefix="/" onExecute={(q) => { performSearch(q); setSearchActive(false); }} onCancel={() => setSearchActive(false)} isDarkMode={state.isDarkMode} />}
@@ -368,6 +435,9 @@ const App: React.FC = () => {
             onOpenClick={() => fileInputRef.current?.click()}
             onToggleDarkMode={() => setState(prev => ({ ...prev, isDarkMode: !prev.isDarkMode }))}
             onToggleViewMode={() => setState(prev => ({ ...prev, viewMode: prev.viewMode === 'single' ? 'double' : 'single' }))}
+            onToggleBookMode={() => setState(prev => ({ ...prev, isBookMode: !prev.isBookMode }))}
+            onToggleMapView={() => setState(prev => ({ ...prev, isMapViewOpen: !prev.isMapViewOpen }))}
+            onToggleFullscreen={toggleFullscreen}
             onPageChange={(p) => setState(prev => ({ ...prev, currentPage: p }))}
             onFitWidth={() => handleFit('width')}
             onFitHeight={() => handleFit('height')}

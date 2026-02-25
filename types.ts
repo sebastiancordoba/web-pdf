@@ -7,6 +7,9 @@ export interface PDFState {
   rotation: number;
   isDarkMode: boolean;
   isSidebarOpen: boolean;
+  isMapViewOpen: boolean;
+  isBookMode: boolean;
+  isFullscreen: boolean;
   fileName: string;
   searchQuery: string;
   currentSearchResultIndex: number;
