@@ -39,7 +39,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
       const page = await pdfDocRef.current.getPage(state.currentPage);
       // Use standard scale 1 to get base dimensions
       const viewport = page.getViewport({ scale: 1, rotation: state.rotation });
-      
+
       const widthDivider = state.viewMode === 'double' ? 2 : 1;
       // Subtract a small buffer for margins/scrollbars
       return {
@@ -58,7 +58,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
     const loadPdf = async () => {
       setLoading(true);
       try {
-        loadingTask = pdfjsLib.getDocument({ 
+        loadingTask = pdfjsLib.getDocument({
           data: pdfData.slice(0),
           cMapUrl: 'https://unpkg.com/pdfjs-dist@4.10.38/cmaps/',
           cMapPacked: true,
@@ -66,12 +66,12 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
           verbosity: 0
         });
 
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("PDF Load Timeout")), 15000)
         );
 
         const pdf = await Promise.race([loadingTask.promise, timeoutPromise]) as pdfjsLib.PDFDocumentProxy;
-        
+
         if (!active) {
           pdf.destroy();
           return;
@@ -81,7 +81,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
       } catch (error) {
         if (active) {
           console.error('Error loading PDF:', error);
-          setLoading(false); 
+          setLoading(false);
         }
       } finally {
         if (active) setLoading(false);
@@ -89,7 +89,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
     };
 
     loadPdf();
-    
+
     return () => {
       active = false;
       if (loadingTask && loadingTask.destroy) loadingTask.destroy();
@@ -103,7 +103,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
   const highlightText = (textLayerDiv: HTMLDivElement, query: string, activeIndexOnPage: number | null) => {
     requestAnimationFrame(() => {
       const spans = Array.from(textLayerDiv.querySelectorAll('span'));
-      
+
       if (!query) {
         spans.forEach(span => {
           if (span.querySelector('mark')) {
@@ -143,7 +143,7 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
           pos = lowerText.indexOf(lowerQuery, start);
         }
         if (start < text.length) nodes.push(document.createTextNode(text.substring(start)));
-        
+
         span.innerHTML = '';
         const fragment = document.createDocumentFragment();
         nodes.forEach(node => fragment.appendChild(node));
@@ -158,14 +158,21 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
 
   const renderSinglePage = async (pageNum: number, renderId: number) => {
     if (!pdfDocRef.current || pageNum > state.numPages || pageNum < 1) return;
-    
+
     const canvas = canvasRefs.current[pageNum];
     const textLayerDiv = textLayerRefs.current[pageNum];
     if (!canvas || !textLayerDiv) return;
 
-    // Cancel any existing task for this page specifically (though we cleared all in useEffect, this is a safety check)
+    // Fast Path Caching: If the page is already rendered with the EXACT same zoom and rotation, skip rendering immediately.
+    const cached = renderedStateRef.current[pageNum];
+    if (cached && cached.zoom === state.zoom && cached.rotation === state.rotation && !state.searchQuery) {
+      // However, if there IS a search query, we still need to render the text layer for highlighting.
+      return;
+    }
+
+    // Cancel any existing task for this page specifically
     if (renderTasksRef.current[pageNum]) {
-      try { renderTasksRef.current[pageNum].cancel(); } catch (e) {}
+      try { renderTasksRef.current[pageNum].cancel(); } catch (e) { }
     }
 
     try {
@@ -205,10 +212,10 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
         canvasContext: context,
         viewport: canvasViewport,
         intent: 'display',
-        canvas: canvas as any 
+        canvas: canvas as any
       });
       renderTasksRef.current[pageNum] = renderTask;
-      
+
       await renderTask.promise;
       if (renderId !== renderIdRef.current) return;
 
@@ -224,7 +231,10 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
         viewport: textViewport
       });
       await textLayer.render();
-      
+
+      // Save to cache after successful mathematical render
+      renderedStateRef.current[pageNum] = { zoom: state.zoom, rotation: state.rotation };
+
       if (state.searchQuery) {
         const currentMatch = state.searchResults[state.currentSearchResultIndex];
         const activeIdx = (currentMatch && currentMatch.page === pageNum) ? currentMatch.occurrenceIndexOnPage : null;
@@ -235,58 +245,79 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
     }
   };
 
-  useEffect(() => {
-    if (!pdfDocRef.current) return;
-    
-    // Cancel all pending render tasks from previous effect run
-    Object.values(renderTasksRef.current).forEach(task => {
-      try { task.cancel(); } catch(e) {}
-    });
-    renderTasksRef.current = {};
-
-    const currentRenderId = ++renderIdRef.current;
-    const pagesToRender = state.viewMode === 'double' 
-      ? [state.currentPage, state.currentPage + 1].filter(p => p <= state.numPages)
-      : [state.currentPage];
-
-    // Render immediately without debounce for faster perceived performance
-    Promise.all(pagesToRender.map(p => renderSinglePage(p, currentRenderId)));
-
-  }, [state.currentPage, state.zoom, state.rotation, state.searchQuery, state.currentSearchResultIndex, state.viewMode, state.numPages]);
-
-  const visiblePages = state.viewMode === 'double' 
+  const getVisiblePages = () => state.viewMode === 'double'
     ? [state.currentPage, state.currentPage + 1].filter(p => p <= state.numPages)
     : [state.currentPage];
 
+  useEffect(() => {
+    if (!pdfDocRef.current) return;
+
+    // We intentionally DO NOT cancel rendering tasks anymore unless the zoom/rotation changed massively
+    // Tasks cancel themselves only on a per-page basis above if invoked.
+
+    const currentRenderId = ++renderIdRef.current;
+    const visiblePages = getVisiblePages();
+
+    // Create an expanded "targetPages" window for off-screen pre-rendering (1-2 pages before, 2-4 pages ahead)
+    const PRE_RENDER_WINDOW = 2;
+    let startPage = Math.max(1, state.currentPage - PRE_RENDER_WINDOW);
+    let endPage = Math.min(state.numPages, state.currentPage + (state.viewMode === 'double' ? 1 : 0) + PRE_RENDER_WINDOW);
+
+    const targetPages: number[] = [];
+    for (let i = startPage; i <= endPage; i++) {
+      targetPages.push(i);
+    }
+
+    // Render immediately without debounce. The invisible pages will be processed by pdf.js transparently.
+    Promise.all(targetPages.map(p => renderSinglePage(p, currentRenderId)));
+
+  }, [state.currentPage, state.zoom, state.rotation, state.searchQuery, state.currentSearchResultIndex, state.viewMode, state.numPages]);
+
+  const visiblePagesList = getVisiblePages();
+
+  // Create an expanded array containing cached pages to maintain in the DOM loop (prevents unmounting lag)
+  const CACHE_WINDOW = 3;
+  let domStart = Math.max(1, state.currentPage - CACHE_WINDOW);
+  let domEnd = Math.min(state.numPages, state.currentPage + (state.viewMode === 'double' ? 1 : 0) + CACHE_WINDOW);
+
+  const domPages: number[] = [];
+  for (let i = domStart; i <= domEnd; i++) {
+    domPages.push(i);
+  }
+
   return (
     <div className={`m-auto flex gap-4 transition-all duration-300 ${state.isDarkMode ? 'pdf-dark-mode' : ''}`}>
-      {visiblePages.map(pageNum => (
-        <div 
-          key={pageNum}
-          className="pdf-page-wrapper relative shadow-2xl border border-gray-500/10 bg-white group"
-          style={{ 
-            minWidth: '100px', 
-            minHeight: '100px',
-            paddingLeft: state.isBookMode && pageNum % 2 === 0 ? '24px' : '0',
-            paddingRight: state.isBookMode && pageNum % 2 !== 0 ? '24px' : '0',
-            transition: 'padding 0.3s ease'
-          }}
-        >
-          <canvas 
-            ref={el => { canvasRefs.current[pageNum] = el; }}
-            className="block" 
-          />
-          <div 
-            ref={el => { textLayerRefs.current[pageNum] = el; }}
-            className="textLayer" 
-          />
-          {state.viewMode === 'double' && (
-            <div className="absolute -bottom-6 left-0 right-0 text-center mono text-[10px] opacity-30 font-bold uppercase tracking-widest pointer-events-none">
-              Page {pageNum}
-            </div>
-          )}
-        </div>
-      ))}
+      {domPages.map(pageNum => {
+        const isVisible = visiblePagesList.includes(pageNum);
+        return (
+          <div
+            key={pageNum}
+            className="pdf-page-wrapper relative shadow-2xl border border-gray-500/10 bg-white group"
+            style={{
+              display: isVisible ? 'block' : 'none',
+              minWidth: '100px',
+              minHeight: '100px',
+              paddingLeft: state.isBookMode && pageNum % 2 === 0 ? '24px' : '0',
+              paddingRight: state.isBookMode && pageNum % 2 !== 0 ? '24px' : '0',
+              transition: 'padding 0.3s ease'
+            }}
+          >
+            <canvas
+              ref={el => { canvasRefs.current[pageNum] = el; }}
+              className="block"
+            />
+            <div
+              ref={el => { textLayerRefs.current[pageNum] = el; }}
+              className="textLayer"
+            />
+            {state.viewMode === 'double' && (
+              <div className="absolute -bottom-6 left-0 right-0 text-center mono text-[10px] opacity-30 font-bold uppercase tracking-widest pointer-events-none">
+                Page {pageNum}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 });
