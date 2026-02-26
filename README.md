@@ -25,8 +25,8 @@ For the true Zathura experience, you can install the native macOS desktop applic
 You can easily install the app directly from your terminal using Homebrew:
 
 ```bash
-# 1. Tap the custom repository
-brew tap sebastiancordoba/web-pdf
+# 1. Tap the custom repository (specifying the exact URL)
+brew tap sebastiancordoba/web-pdf https://github.com/sebastiancordoba/web-pdf
 
 # 2. Install the application
 brew install zathura-web
