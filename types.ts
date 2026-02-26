@@ -1,3 +1,9 @@
+declare global {
+  interface Window {
+    __TAURI__?: boolean;
+  }
+}
+
 export interface PDFState {
   file: File | null;
   fileType: 'pdf' | 'epub' | null;

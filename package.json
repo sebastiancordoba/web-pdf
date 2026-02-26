@@ -9,9 +9,12 @@
     "postbuild": "cp dist/index.html dist/404.html",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "tauri": "tauri"
   },
   "dependencies": {
+    "@tauri-apps/plugin-cli": "^2.4.1",
+    "@tauri-apps/plugin-log": "^2.8.0",
     "epubjs": "^0.3.93",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "4.10.38",
@@ -19,6 +22,10 @@
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/cli": "^2.10.0",
+    "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-process": "^2.3.1",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "gh-pages": "^6.3.0",

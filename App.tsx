@@ -41,7 +41,7 @@ const App: React.FC = () => {
   const [searchActive, setSearchActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastResponse, setLastResponse] = useState<CommandResponse | null>(null);
-  
+
   const lastKeyRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mainRef = useRef<HTMLElement>(null);
@@ -54,6 +54,79 @@ const App: React.FC = () => {
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  // Tauri Setup
+  useEffect(() => {
+    // Only run if in Tauri
+    if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return;
+
+    let unlisten: (() => void) | undefined;
+
+    const setupTauri = async () => {
+      const { listen } = await import('@tauri-apps/api/event');
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const { getMatches } = await import('@tauri-apps/plugin-cli');
+
+      // Function to load a file by path
+      const loadTauriFile = async (filePath: string) => {
+        setIsProcessing(true);
+        try {
+          const contents = await readFile(filePath);
+          setFileData(contents.buffer);
+
+          const fileName = filePath.split('/').pop() || filePath.split('\\').pop() || 'Unknown';
+          const fileType = fileName.toLowerCase().endsWith('.epub') ? 'epub' : 'pdf';
+
+          setState(prev => ({
+            ...prev,
+            file: null, // No Web File object
+            fileType,
+            fileName,
+            currentPage: 1,
+            rotation: 0,
+            searchQuery: '',
+            searchResults: [],
+            currentSearchResultIndex: -1,
+            numPages: 0
+          }));
+          setLastResponse({ message: `Loaded ${fileName}`, type: 'success' });
+        } catch (err) {
+          console.error("Error reading tauri file:", err);
+          setLastResponse({ message: "Error reading file from disk", type: 'error' });
+        } finally {
+          setIsProcessing(false);
+        }
+      };
+
+      // 1. Check if we were launched with an argument right now via Tauri CLI plugin
+      try {
+        const matches = await getMatches();
+        // matches.args.file refers to the "file" argument we defined in tauri.conf.json
+        if (matches.args.file && matches.args.file.value) {
+          const targetArg = matches.args.file.value as string;
+          if (targetArg.toLowerCase().endsWith('.pdf') || targetArg.toLowerCase().endsWith('.epub')) {
+            await loadTauriFile(targetArg);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to read process args", e);
+      }
+
+      // 2. Listen for future "open-file" events if the app is already open
+      unlisten = await listen<string>('open-file', async (event) => {
+        const filePath = event.payload;
+        if (filePath) {
+          await loadTauriFile(filePath);
+        }
+      });
+    };
+
+    setupTauri();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
   }, []);
 
   const toggleFullscreen = useCallback(() => {
@@ -129,7 +202,7 @@ const App: React.FC = () => {
 
   const performSearch = useCallback(async (query: string) => {
     if (!fileData || !query.trim()) return;
-    
+
     if (state.fileType === 'pdf') {
       setIsProcessing(true);
       setLastResponse({ message: "Searching...", type: 'info' });
@@ -222,12 +295,12 @@ const App: React.FC = () => {
       case 'g':
         const targetPage = parseInt(parts[1]);
         if (targetPage > 0) {
-           if (state.fileType === 'pdf' && targetPage <= state.numPages) {
-             setState(prev => ({ ...prev, currentPage: targetPage }));
-           } else if (state.fileType === 'epub') {
-             // EPUB goto logic might need CFI or page mapping, for now just update state
-             // EPUBReader handles internal navigation, but we need to sync state
-           }
+          if (state.fileType === 'pdf' && targetPage <= state.numPages) {
+            setState(prev => ({ ...prev, currentPage: targetPage }));
+          } else if (state.fileType === 'epub') {
+            // EPUB goto logic might need CFI or page mapping, for now just update state
+            // EPUBReader handles internal navigation, but we need to sync state
+          }
         }
         break;
       default:
@@ -271,7 +344,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (commandActive || searchActive || document.activeElement?.tagName === 'INPUT') return;
-      
+
       // Handle gg jump
       if (e.key === 'g' && lastKeyRef.current === 'g') {
         e.preventDefault();
@@ -280,7 +353,7 @@ const App: React.FC = () => {
         return;
       }
       lastKeyRef.current = e.key;
-      setTimeout(() => { if(lastKeyRef.current === e.key) lastKeyRef.current = null; }, 400);
+      setTimeout(() => { if (lastKeyRef.current === e.key) lastKeyRef.current = null; }, 400);
 
       switch (e.key) {
         case ':': e.preventDefault(); setCommandActive(true); break;
@@ -313,8 +386,8 @@ const App: React.FC = () => {
           break;
         case 'G': e.preventDefault(); setState(prev => ({ ...prev, currentPage: prev.numPages })); break;
         case 'i': setState(prev => ({ ...prev, isDarkMode: !prev.isDarkMode })); break;
-        case 'd': 
-          setState(prev => ({ ...prev, viewMode: prev.viewMode === 'single' ? 'double' : 'single' })); 
+        case 'd':
+          setState(prev => ({ ...prev, viewMode: prev.viewMode === 'single' ? 'double' : 'single' }));
           setTimeout(() => {
             if (mainRef.current) {
               mainRef.current.scrollLeft = (mainRef.current.scrollWidth - mainRef.current.clientWidth) / 2;
@@ -340,8 +413,8 @@ const App: React.FC = () => {
         case '-': setState(prev => ({ ...prev, zoom: Math.max(0.2, prev.zoom - 0.1) })); break;
         case 's': handleFit('width'); break;
         case 'a': handleFit('height'); break;
-        case 'Escape': 
-          setState(prev => ({ ...prev, searchQuery: '', searchResults: [], currentSearchResultIndex: -1 })); 
+        case 'Escape':
+          setState(prev => ({ ...prev, searchQuery: '', searchResults: [], currentSearchResultIndex: -1 }));
           setCommandActive(false);
           setSearchActive(false);
           break;
@@ -355,9 +428,9 @@ const App: React.FC = () => {
     <div className={`flex flex-col h-screen w-screen overflow-hidden ${state.isDarkMode ? 'bg-[#1a1b26]' : 'bg-[#f0f0f0]'}`}>
       <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf,.epub" className="hidden" />
       <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar 
-          isOpen={state.isSidebarOpen} 
-          fileData={fileData ? new Uint8Array(fileData) : null} 
+        <Sidebar
+          isOpen={state.isSidebarOpen}
+          fileData={fileData ? new Uint8Array(fileData) : null}
           state={state}
           toc={toc}
           onPageSelect={(p) => {
@@ -369,7 +442,7 @@ const App: React.FC = () => {
               epubReaderRef.current?.goTo(cfi);
             }
           }}
-          onReorder={() => {}} 
+          onReorder={() => { }}
           isDarkMode={state.isDarkMode}
         />
         <main ref={mainRef} className="flex-1 flex overflow-auto no-scrollbar relative p-12 scroll-smooth">
@@ -396,7 +469,7 @@ const App: React.FC = () => {
             </div>
           ) : (
             state.fileType === 'pdf' ? (
-              <PDFReader 
+              <PDFReader
                 key={state.fileName + (fileData?.byteLength || 0)}
                 ref={pdfReaderRef}
                 pdfData={fileData}
@@ -434,9 +507,9 @@ const App: React.FC = () => {
         )}
         {state.numPages > 1 && (
           <div className="relative h-full flex items-center">
-            <ProgressSpine 
-              numPages={state.numPages} 
-              currentPage={state.currentPage} 
+            <ProgressSpine
+              numPages={state.numPages}
+              currentPage={state.currentPage}
               onPageSelect={(p) => {
                 setState(prev => ({ ...prev, currentPage: p }));
                 if (state.fileType === 'pdf' && mainRef.current) mainRef.current.scrollTop = 0;
@@ -445,14 +518,14 @@ const App: React.FC = () => {
                   epubReaderRef.current?.goToPercentage(percentage);
                 }
               }}
-              isDarkMode={state.isDarkMode} 
+              isDarkMode={state.isDarkMode}
             />
           </div>
         )}
       </div>
-      <MapView 
-        isOpen={state.isMapViewOpen} 
-        fileData={fileData ? new Uint8Array(fileData) : null} 
+      <MapView
+        isOpen={state.isMapViewOpen}
+        fileData={fileData ? new Uint8Array(fileData) : null}
         state={state}
         onPageSelect={(p) => {
           setState(prev => ({ ...prev, currentPage: p }));
@@ -469,8 +542,8 @@ const App: React.FC = () => {
         {commandActive && <CommandInput prefix=":" onExecute={executeCommand} onCancel={() => setCommandActive(false)} isDarkMode={state.isDarkMode} />}
         {searchActive && <CommandInput prefix="/" onExecute={(q) => { performSearch(q); setSearchActive(false); }} onCancel={() => setSearchActive(false)} isDarkMode={state.isDarkMode} />}
         {!commandActive && !searchActive && state.isControlsVisible && (
-          <StatusBar 
-            state={state} 
+          <StatusBar
+            state={state}
             lastResponse={lastResponse}
             onOpenClick={() => fileInputRef.current?.click()}
             onToggleDarkMode={() => setState(prev => ({ ...prev, isDarkMode: !prev.isDarkMode }))}

@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# macOS
+**/.DS_Store
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/schemas/

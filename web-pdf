@@ -1,0 +1,2 @@
+#!/bin/bash
+open -a "/Users/sebastiancordoba/Documents/Apps AIstudio/web-pdf/src-tauri/target/release/bundle/macos/ZathuraWeb.app" --args "$@"
