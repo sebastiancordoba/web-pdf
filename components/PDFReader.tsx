@@ -268,6 +268,15 @@ const PDFReader = forwardRef(({ pdfData, state, onPagesLoaded, onLoadingChange }
       targetPages.push(i);
     }
 
+    // Explicitly cancel tasks for pages that we've jumped past so they don't clog PDF.js worker
+    Object.keys(renderTasksRef.current).forEach(pageNumStr => {
+      const pageNum = parseInt(pageNumStr);
+      if (!targetPages.includes(pageNum)) {
+        try { renderTasksRef.current[pageNum].cancel(); } catch (e) { }
+        delete renderTasksRef.current[pageNum];
+      }
+    });
+
     // Render immediately without debounce. The invisible pages will be processed by pdf.js transparently.
     Promise.all(targetPages.map(p => renderSinglePage(p, currentRenderId)));
 

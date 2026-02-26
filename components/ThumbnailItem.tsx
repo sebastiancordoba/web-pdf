@@ -34,19 +34,19 @@ const getPdfDoc = async (pdfData: Uint8Array) => {
   if (cachedPdfData === pdfData && cachedPdfDoc) {
     return cachedPdfDoc;
   }
-  
+
   if (cachedPdfDoc) {
-    try { cachedPdfDoc.destroy(); } catch (e) {}
+    try { cachedPdfDoc.destroy(); } catch (e) { }
     thumbnailCache.clear();
     renderQueue.length = 0; // Clear queue for old PDF
   }
-  
+
   cachedPdfData = pdfData;
-  const loadingTask = pdfjsLib.getDocument({ 
+  const loadingTask = pdfjsLib.getDocument({
     data: pdfData.slice(0),
     cMapUrl: 'https://unpkg.com/pdfjs-dist@4.10.38/cmaps/',
     cMapPacked: true,
-    verbosity: 0 
+    verbosity: 0
   });
   cachedPdfDoc = await loadingTask.promise;
   return cachedPdfDoc;
@@ -60,9 +60,10 @@ interface Props {
   isDarkMode: boolean;
   scale?: number;
   className?: string;
+  variant?: 'grid' | 'sidebar';
 }
 
-const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isDarkMode, scale = 0.2, className = "" }) => {
+const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isDarkMode, scale = 0.2, className = "", variant = 'grid' }) => {
   const cacheKey = `${index}-${scale}`;
   const [thumb, setThumb] = useState<string | null>(() => {
     return cachedPdfData === pdfData ? (thumbnailCache.get(cacheKey) || null) : null;
@@ -70,12 +71,14 @@ const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isD
   const containerRef = useRef<HTMLDivElement>(null);
   const isMounted = useRef(true);
   const isQueued = useRef(false);
+  const isIntersectingRef = useRef(false);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     isMounted.current = true;
-    return () => { 
-      isMounted.current = false; 
+    return () => {
+      isMounted.current = false;
+      isIntersectingRef.current = false;
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };
   }, []);
@@ -95,6 +98,8 @@ const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isD
     }
 
     const observer = new IntersectionObserver((entries) => {
+      isIntersectingRef.current = entries[0].isIntersecting;
+
       if (entries[0].isIntersecting && !isQueued.current) {
         // Double check cache before queuing
         if (cachedPdfData === pdfData && thumbnailCache.has(cacheKey)) {
@@ -107,7 +112,10 @@ const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isD
         renderQueue.push({
           priority: isActive ? 10 : 1, // Prioritize active page
           task: async () => {
-            if (!isMounted.current) return;
+            if (!isMounted.current || !isIntersectingRef.current) {
+              isQueued.current = false;
+              return;
+            }
             if (cachedPdfData === pdfData && thumbnailCache.has(cacheKey)) {
               setThumb(thumbnailCache.get(cacheKey)!);
               return;
@@ -127,26 +135,26 @@ const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isD
     try {
       const pdf = await getPdfDoc(pdfData);
       const page = await pdf.getPage(index + 1);
-      
+
       const dpr = window.devicePixelRatio || 1;
-      const viewport = page.getViewport({ scale: scale * dpr }); 
-      
+      const viewport = page.getViewport({ scale: scale * dpr });
+
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      
+
       if (context) {
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-        await page.render({ 
-          canvasContext: context, 
+        await page.render({
+          canvasContext: context,
           viewport,
           intent: 'display',
           canvas: canvas as any
         }).promise;
-        
+
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
         thumbnailCache.set(cacheKey, dataUrl);
-        
+
         if (isMounted.current) {
           // Debounce the state update to prevent rapid re-renders
           if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -162,22 +170,50 @@ const ThumbnailItem: React.FC<Props> = ({ index, pdfData, isActive, onClick, isD
     }
   };
 
+  if (variant === 'sidebar') {
+    return (
+      <div
+        ref={containerRef}
+        id={`sidebar-thumb-${index}`}
+        onClick={onClick}
+        className={`group relative p-3 rounded-sm cursor-pointer transition-all flex items-center gap-4 border-l-2 ${className} ${isActive
+            ? (isDarkMode ? 'bg-blue-500/10 border-blue-500 text-blue-100' : 'bg-blue-500/10 border-blue-600 text-blue-800')
+            : `border-transparent hover:bg-black/5 dark:hover:bg-white/5 ${isDarkMode ? 'text-gray-400 opacity-60 hover:opacity-100' : 'text-gray-600 opacity-70 hover:opacity-100'}`
+          }`}
+      >
+        <div className="w-16 h-24 bg-gray-500/5 rounded-sm overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm border border-gray-500/10 relative">
+          {thumb ? (
+            <img src={thumb} alt={`P${index + 1}`} className={`w-full h-full object-contain ${isDarkMode ? 'filter invert-[0.9] hue-rotate-180 contrast-[0.9] brightness-[1.1]' : ''}`} />
+          ) : (
+            <div className="flex items-center justify-center w-full h-full bg-gray-500/10">
+              <div className="w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin opacity-50"></div>
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col">
+          <span className="mono text-lg font-bold opacity-80">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div 
+    <div
       ref={containerRef}
       onClick={onClick}
-      className={`group relative rounded-sm cursor-pointer transition-all flex flex-col items-center gap-2 ${className} ${
-        isActive 
-        ? (isDarkMode ? 'ring-2 ring-blue-500 bg-blue-500/10' : 'ring-2 ring-blue-600 bg-blue-500/10') 
-        : `hover:bg-black/5 dark:hover:bg-white/5`
-      }`}
+      className={`group relative rounded-sm cursor-pointer transition-all flex flex-col items-center gap-2 ${className} ${isActive
+          ? (isDarkMode ? 'ring-2 ring-blue-500 bg-blue-500/10' : 'ring-2 ring-blue-600 bg-blue-500/10')
+          : `hover:bg-black/5 dark:hover:bg-white/5`
+        }`}
     >
       <div className="w-full aspect-[1/1.4] bg-gray-500/5 rounded-sm overflow-hidden flex items-center justify-center shadow-sm border border-gray-500/10 relative">
         {thumb ? (
-          <img src={thumb} alt={`P${index+1}`} className={`w-full h-full object-contain ${isDarkMode ? 'filter invert-[0.9] hue-rotate-180 contrast-[0.9] brightness-[1.1]' : ''}`} />
+          <img src={thumb} alt={`P${index + 1}`} className={`w-full h-full object-contain ${isDarkMode ? 'filter invert-[0.9] hue-rotate-180 contrast-[0.9] brightness-[1.1]' : ''}`} />
         ) : (
           <div className="flex items-center justify-center w-full h-full bg-gray-500/10">
-             <div className="w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin opacity-50"></div>
+            <div className="w-4 h-4 rounded-full border-2 border-gray-400 border-t-transparent animate-spin opacity-50"></div>
           </div>
         )}
       </div>
